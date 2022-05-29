@@ -7,6 +7,10 @@ import getpass
 import hashlib
 from typing import Callable
 
+from tabulate import tabulate
+
+import deebee.model.client as model_client
+
 class Line:
   def __init__(self, line):
     self.iter = iter(line.split())
@@ -85,11 +89,23 @@ class CtxMain(Ctx):
 class Client(Ctx):
   def __init__(self, mgr):
     Ctx.__init__(self, mgr)
+    self.cmds["list"] = Cmd("{restaurants}", self.client_list)
 
   @property
   def name(self):
     return "client"
 
+  def client_list(self, line):
+    resource = line.get_token("resource")
+    if resource is None:
+      return
+    conn = self.mgr.conn
+    if resource == "restaurants":
+      header, rows = model_client.list_restaurants(conn)
+    else:
+      print(f"Error: Unknown resource: {resource}")
+      return
+    print(tabulate(rows, header, tablefmt="psql"))
 
 class Restaurant(Ctx):
   def __init__(self, mgr):
