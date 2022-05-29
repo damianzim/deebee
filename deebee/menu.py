@@ -3,7 +3,12 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict, namedtuple
+import getpass
+import hashlib
 from typing import Callable
+
+CURSOR = None
+CTX = None
 
 class Line:
   def __init__(self, line):
@@ -46,28 +51,67 @@ class Ctx(ABC):
 class CtxMain(Ctx):
   def __init__(self):
     Ctx.__init__(self)
+    self.cmds["login"] = Cmd("<email>", self.login)
 
   @property
   def name(self):
     return "main"
 
-# getpass.getpass(prompt='Password: ', stream=None) for getting password
+  def login(self, line):
+    email = line.get_token("email")
+    if email is None:
+      return
+    password = getpass.getpass(prompt="Password: ", stream=None)
+    if len(password) == 0:
+      print("Error: Password is empty")
+      return
+    password = hashlib.sha256(password.encode()).digest()
+    account_type = CURSOR.callfunc("ofoa_auth", str, [email, password])
+    if account_type is None:
+      print("Error: Invalid email or password")
+      return
+    global CTX
+    if account_type == "client":
+      CTX = Client()
+    elif account_type == "restaurant":
+      CTX = Restaurant()
+    else:
+      print(f"Error: Invalid account type: {account_type}")
+      return
 
-def menu():
+class Client(Ctx):
+  def __init__(self):
+    Ctx.__init__(self)
+
+  @property
+  def name(self):
+    return "client"
+
+class Restaurant(Ctx):
+  def __init__(self):
+    Ctx.__init__(self)
+
+  @property
+  def name(self):
+    return "restaurant"
+
+def menu(cursor):
+  global CTX, CURSOR
+  CURSOR = cursor
   ctx_main = CtxMain()
-  ctx = ctx_main
+  CTX = ctx_main
 
   while True:
-    line = input(f"{ctx.name}> ").strip()
+    line = input(f"{CTX.name}> ").strip()
     if len(line) == 0:
       continue
     if line == "exit":
-      if ctx is ctx_main:
+      if CTX is ctx_main:
         break
-      ctx = ctx_main
+      CTX = ctx_main
       continue
-    if not ctx.handle(Line(line)):
+    if not CTX.handle(Line(line)):
       break
 
 if __name__ == "__main__":
-  menu()
+  menu(None)

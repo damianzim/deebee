@@ -4,5 +4,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import deebee
+from deebee import menu
+
 if __name__ == "__main__":
-  print("deebee")
+  deebee.setup()
+  menu.menu(deebee.CURSOR)
+  deebee.close()
