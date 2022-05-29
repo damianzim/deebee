@@ -9,5 +9,5 @@ from deebee import menu
 
 if __name__ == "__main__":
   deebee.setup()
-  menu.menu(deebee.CURSOR)
+  menu.menu(deebee.CONNECTION)
   deebee.close()

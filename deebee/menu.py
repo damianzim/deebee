@@ -7,9 +7,6 @@ import getpass
 import hashlib
 from typing import Callable
 
-CURSOR = None
-CTX = None
-
 class Line:
   def __init__(self, line):
     self.iter = iter(line.split())
@@ -24,10 +21,16 @@ class Line:
 
 Cmd = namedtuple("Cmd", "args callback")
 
+class Mgr:
+  def __init__(self, conn):
+    self.conn = conn
+    self.ctx = None
+
 class Ctx(ABC):
-  def __init__(self):
+  def __init__(self, mgr):
     self.cmds = OrderedDict()
     self.cmds["help"] = Cmd("", self.help)
+    self.mgr = mgr
 
   @property
   @abstractmethod
@@ -49,8 +52,8 @@ class Ctx(ABC):
       print(f"?{name} {args}" if len(args) > 0 else f"?{name}")
 
 class CtxMain(Ctx):
-  def __init__(self):
-    Ctx.__init__(self)
+  def __init__(self, mgr):
+    Ctx.__init__(self, mgr)
     self.cmds["login"] = Cmd("<email>", self.login)
 
   @property
@@ -66,51 +69,51 @@ class CtxMain(Ctx):
       print("Error: Password is empty")
       return
     password = hashlib.sha256(password.encode()).digest()
-    account_type = CURSOR.callfunc("ofoa_auth", str, [email, password])
+    with self.mgr.conn.cursor() as cursor:
+      account_type = cursor.callfunc("ofoa_auth", str, [email, password])
     if account_type is None:
       print("Error: Invalid email or password")
       return
-    global CTX
     if account_type == "client":
-      CTX = Client()
+      self.mgr.ctx = Client(self.mgr)
     elif account_type == "restaurant":
-      CTX = Restaurant()
+      self.mgr.ctx = Restaurant(self.mgr)
     else:
       print(f"Error: Invalid account type: {account_type}")
       return
 
 class Client(Ctx):
-  def __init__(self):
-    Ctx.__init__(self)
+  def __init__(self, mgr):
+    Ctx.__init__(self, mgr)
 
   @property
   def name(self):
     return "client"
 
+
 class Restaurant(Ctx):
-  def __init__(self):
-    Ctx.__init__(self)
+  def __init__(self, mgr):
+    Ctx.__init__(self, mgr)
 
   @property
   def name(self):
     return "restaurant"
 
-def menu(cursor):
-  global CTX, CURSOR
-  CURSOR = cursor
-  ctx_main = CtxMain()
-  CTX = ctx_main
+def menu(conn):
+  mgr = Mgr(conn)
+  ctx_main = CtxMain(mgr)
+  mgr.ctx = ctx_main
 
   while True:
-    line = input(f"{CTX.name}> ").strip()
+    line = input(f"{mgr.ctx.name}> ").strip()
     if len(line) == 0:
       continue
     if line == "exit":
-      if CTX is ctx_main:
+      if mgr.ctx is ctx_main:
         break
-      CTX = ctx_main
+      mgr.ctx = ctx_main
       continue
-    if not CTX.handle(Line(line)):
+    if not mgr.ctx.handle(Line(line)):
       break
 
 if __name__ == "__main__":

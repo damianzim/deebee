@@ -6,13 +6,11 @@ import os
 import cx_Oracle as db
 
 CONNECTION = None
-CURSOR = None
 
 def setup():
   global CONNECTION, CURSOR
   host, user, password = os.getenv("DB_HOST"), os.getenv("DB_USER"), os.getenv("DB_PASS")
   CONNECTION = db.connect(dsn=host, user=user, password=password)
-  CURSOR = CONNECTION.cursor()
 
 def close():
   global CONNECTION
