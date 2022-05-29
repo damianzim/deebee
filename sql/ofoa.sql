@@ -62,7 +62,7 @@
     "RESTAURANT_ID" NUMBER(4,0), -- May be NULL is restaurant deletes this product.
     "NAME" VARCHAR2(30 BYTE) NOT NULL,
     "DESCRIPTION" VARCHAR2(200 BYTE) NOT NULL,
-    "PRICE" NUMBER(5,2) NOT NULL
+    "PRICE" NUMBER(5,2) NOT NULL CHECK ("PRICE" > 0)
   );
 
   ALTER TABLE "PRODUCTS" ADD CONSTRAINT "PRODUCT_ID_PK" PRIMARY KEY ("PRODUCT_ID");
@@ -91,7 +91,7 @@
     "ORDER_DETAIL_ID" NUMBER(10,0) NOT NULL,
     "ORDER_ID" NUMBER(8,0) NOT NULL,
     "PRODUCT_ID" NUMBER(6,0) NOT NULL,
-    "AMOUNT" NUMBER(1,0) NOT NULL
+    "AMOUNT" NUMBER(1,0) NOT NULL CHECK ("AMOUNT" >= 1)
   );
 
   ALTER TABLE "ORDER_DETAILS" ADD CONSTRAINT "ORDER_DETAIL_ID_PK" PRIMARY KEY ("ORDER_DETAIL_ID");
@@ -105,9 +105,9 @@
     "CLIENT_ID" NUMBER(6,0) NOT NULL,
     "FIRST_NAME" VARCHAR2(20 BYTE) NOT NULL,
     "LAST_NAME" VARCHAR2(25 BYTE) NOT NULL,
-    "EMAIL" VARCHAR2(25 BYTE) NOT NULL,
+    "EMAIL" VARCHAR2(50 BYTE) NOT NULL UNIQUE,
     "PASSWORD" RAW(32) NOT NULL, -- SHA256
-    "PHONE_NUMBER" VARCHAR2(20 BYTE),
+    "PHONE_NUMBER" VARCHAR2(20 BYTE) UNIQUE,
     "STREET_ADDRESS" VARCHAR2(40 BYTE) NOT NULL,
     "POSTAL_CODE" VARCHAR2(12 BYTE) NOT NULL,
     "CITY" VARCHAR2(30 BYTE) NOT NULL
@@ -124,7 +124,7 @@
     "CART_ENTRY_ID" NUMBER(8,0) NOT NULL,
     "CLIENT_ID" NUMBER(6,0) NOT NULL,
     "PRODUCT_ID" NUMBER(6,0) NOT NULL,
-    "AMOUNT" NUMBER(1,0) NOT NULL
+    "AMOUNT" NUMBER(1,0) NOT NULL CHECK ("AMOUNT" >= 1)
   );
 
   ALTER TABLE "CART" ADD CONSTRAINT "CART_ENTRY_ID_PK" PRIMARY KEY ("CART_ENTRY_ID");
@@ -136,7 +136,7 @@
   CREATE TABLE "FOOD_TYPES"
   (
     "FOOD_TYPE_ID" NUMBER(2,0) NOT NULL,
-    "NAME" VARCHAR2(20 BYTE) NOT NULL
+    "NAME" VARCHAR2(20 BYTE) NOT NULL UNIQUE
   );
 
   ALTER TABLE "FOOD_TYPES" ADD CONSTRAINT "FOOD_TYPE_ID_PK" PRIMARY KEY ("FOOD_TYPE_ID");
@@ -148,10 +148,10 @@
   CREATE TABLE "RESTAURANTS"
   (
     "RESTAURANT_ID" NUMBER(4,0) NOT NULL,
-    "NAME" VARCHAR2(20 BYTE) NOT NULL,
-    "EMAIL" VARCHAR2(25 BYTE) NOT NULL,
+    "NAME" VARCHAR2(20 BYTE) NOT NULL UNIQUE,
+    "EMAIL" VARCHAR2(50 BYTE) NOT NULL UNIQUE,
     "PASSWORD" RAW(32) NOT NULL, -- SHA256
-    "PHONE_NUMBER" VARCHAR2(20 BYTE),
+    "PHONE_NUMBER" VARCHAR2(20 BYTE) UNIQUE,
     "STREET_ADDRESS" VARCHAR2(40 BYTE) NOT NULL,
     "POSTAL_CODE" VARCHAR2(12 BYTE) NOT NULL,
     "CITY" VARCHAR2(30 BYTE) NOT NULL,
@@ -184,7 +184,7 @@
     "RESTAURANT_ID" NUMBER(4,0) NOT NULL,
     "CLIENT_ID" NUMBER(6,0), -- Anonymous review??
     "CONTENT" VARCHAR2(200 BYTE) NOT NULL,
-    "RATING" NUMBER(1,0) NOT NULL
+    "RATING" NUMBER(1,0) NOT NULL CHECK ("RATING" BETWEEN 1 AND 5)
   );
 
   ALTER TABLE "REVIEWS" ADD CONSTRAINT "REVIEW_ID_PK" PRIMARY KEY ("REVIEW_ID");
@@ -238,6 +238,30 @@ BEGIN
   INTO :new.ORDER_ID
   FROM dual;
 END order_on_insert;
+/
+
+
+--------------------------------------------------------
+-- Trigger for sequence: ORDER_STATE_ON_ORDER
+--------------------------------------------------------
+  CREATE OR REPLACE TRIGGER "ORDER_STATE_ON_ORDER"
+    BEFORE INSERT ON orders
+    FOR EACH ROW
+BEGIN
+  :new.STATE := 'Checkout';
+END order_state_on_order;
+/
+
+
+--------------------------------------------------------
+-- Trigger for sequence: ORDER_ORDER_DATE_ON_ORDER
+--------------------------------------------------------
+  CREATE OR REPLACE TRIGGER "ORDER_ORDER_DATE_ON_ORDER"
+    BEFORE UPDATE OR INSERT ON orders
+    FOR EACH ROW
+BEGIN
+  :new.ORDER_DATE := sysdate;
+END order_order_date_on_order;
 /
 
 
@@ -441,3 +465,15 @@ INSERT INTO products (restaurant_id, name, description, price) VALUES (1, 'Pizza
 INSERT INTO products (restaurant_id, name, description, price) VALUES (1, 'Pizza Pepperoni', 'Size: S, Components: cheese, pepperoni, onion, extra virgin olive', 28.5);
 INSERT INTO products (restaurant_id, name, description, price) VALUES (1, 'Pizza Pepperoni', 'Size: L, Components: cheese, pepperoni, onion, extra virgin olive', 34);
 INSERT INTO products (restaurant_id, name, description, price) VALUES (1, 'Pizza Pepperoni', 'Size: XL, Components: cheese, pepperoni, onion, extra virgin olive', 40);
+
+INSERT
+  INTO clients (first_name, last_name, email, password, street_address, postal_code, city)
+  VALUES ('Bob', 'Williams', 'bob@williams.com', hextoraw('0700a58f2e604b685c61b06ba145fa31e2803a932b6a12dfedd8e36062e0e114'), 'Marszałkowska 501', '00-123', 'Warszawa');
+
+  DECLARE
+    l_order_id NUMBER(8);
+BEGIN
+  INSERT INTO orders (client_id, restaurant_id) VALUES (1, 1) RETURNING order_id INTO l_order_id;
+  INSERT INTO order_details (order_id, product_id, amount) VALUES (l_order_id, 2, 1);
+  INSERT INTO order_details (order_id, product_id, amount) VALUES (l_order_id, 4, 2);
+END;
