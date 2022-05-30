@@ -467,8 +467,18 @@ INSERT INTO products (restaurant_id, name, description, price) VALUES (1, 'Pizza
 INSERT INTO products (restaurant_id, name, description, price) VALUES (1, 'Pizza Pepperoni', 'Size: XL, Components: cheese, pepperoni, onion, extra virgin olive', 40);
 
 INSERT
+  INTO restaurants (name, email, password, phone_number, street_address, postal_code, city, food_type_id)
+  VALUES ('Antalya', 'contact@antalya.com', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', '+48 789 654 312', 'Al. Jerozolimskie 312', '00-375', 'Warszawa', (SELECT food_type_id FROM food_types WHERE name = 'Kebap'));
+
+INSERT
   INTO clients (first_name, last_name, email, password, street_address, postal_code, city)
   VALUES ('Bob', 'Williams', 'bob@williams.com', hextoraw('0700a58f2e604b685c61b06ba145fa31e2803a932b6a12dfedd8e36062e0e114'), 'Marszałkowska 501', '00-123', 'Warszawa');
+INSERT
+  INTO clients (first_name, last_name, email, password, street_address, postal_code, city)
+  VALUES ('John', 'Williams', 'john@williams.com', hextoraw('0700a58f2e604b685c61b06ba145fa31e2803a932b6a12dfedd8e36062e0e114'), 'Marszałkowska 501', '00-123', 'Warszawa');
+
+INSERT INTO favorites (client_id, restaurant_id) VALUES (1, 1);
+INSERT INTO favorites (client_id, restaurant_id) VALUES (1, 2);
 
   DECLARE
     l_order_id NUMBER(8);

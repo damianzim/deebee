@@ -9,7 +9,7 @@ from typing import Callable
 
 from tabulate import tabulate
 
-import deebee.model.client as model_client
+from deebee.model import ModelClient, ModelRestaurant
 
 class Line:
   def __init__(self, line):
@@ -79,17 +79,18 @@ class CtxMain(Ctx):
       print("Error: Invalid email or password")
       return
     if account_type == "client":
-      self.mgr.ctx = Client(self.mgr)
+      self.mgr.ctx = Client(self.mgr, email)
     elif account_type == "restaurant":
-      self.mgr.ctx = Restaurant(self.mgr)
+      self.mgr.ctx = Restaurant(self.mgr, email)
     else:
       print(f"Error: Invalid account type: {account_type}")
       return
 
 class Client(Ctx):
-  def __init__(self, mgr):
+  def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
     self.cmds["list"] = Cmd("{restaurants}", self.client_list)
+    self.model = ModelClient.login(mgr.conn, email)
 
   @property
   def name(self):
@@ -101,15 +102,16 @@ class Client(Ctx):
       return
     conn = self.mgr.conn
     if resource == "restaurants":
-      header, rows = model_client.list_restaurants(conn)
+      header, rows = self.model.list_restaurants()
     else:
       print(f"Error: Unknown resource: {resource}")
       return
     print(tabulate(rows, header, tablefmt="psql"))
 
 class Restaurant(Ctx):
-  def __init__(self, mgr):
+  def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
+    self.model = ModelRestaurant.login(mgr.conn, email)
 
   @property
   def name(self):
