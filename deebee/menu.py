@@ -9,7 +9,7 @@ from typing import Callable
 
 from tabulate import tabulate
 
-from deebee.model import ModelClient, ModelFoodType, ModelRestaurant
+from deebee.model import ModelClient, ModelFavorites, ModelFoodType, ModelRestaurant
 
 class Line:
   def __init__(self, line):
@@ -142,7 +142,9 @@ class Client(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
     self.cmds["list"] = Cmd("{restaurants}", self.client_list)
+    self.cmds["favorites"] = Cmd("{list | add <restaurant id> | delete <entry id>}", self.favorites)
     self.model = ModelClient.login(mgr.conn, email)
+    self.favorites = ModelFavorites(mgr.conn, self.model.client_id)
 
   @property
   def name(self):
@@ -159,6 +161,25 @@ class Client(Ctx):
       print(f"Error: Unknown resource: {resource}")
       return
     print(tabulate(rows, header, tablefmt="psql"))
+
+  def favorites(self, line):
+    subcmd = line.get_token("sub-command")
+    if subcmd is None:
+      return
+    if subcmd == "list":
+      header, rows = self.favorites.list_favorites()
+      print(tabulate(rows, header, tablefmt="psql"))
+      return
+    if subcmd not in {"add", "delete"}:
+      print("Error: Invalid sub-command")
+      return
+    id = line.get_token("id")
+    if id is None:
+      return
+    if subcmd == "add":
+      self.favorites.add_fav_entry(id)
+    else:
+      self.favorites.delete_fav_entry(id)
 
 class Restaurant(Ctx):
   def __init__(self, mgr, email):
