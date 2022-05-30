@@ -1,4 +1,4 @@
-# vim: ts=2 sts=0 sw=2 tw=100 et
+# vim: ts=2 sts=0 sw=2 tw=120 et
 
 from deebee.model.model import Model, dataclass
 
@@ -27,3 +27,19 @@ class ModelRestaurant(Model):
     if row is None:
       return None
     return ModelRestaurant(conn, *row)
+
+  @staticmethod
+  def register(conn, name, email, password, phone_number, street_address, postal_code, city, food_type_id):
+    SQL = """
+    INSERT
+      INTO restaurants (name, email, password, phone_number, street_address, postal_code, city, food_type_id)
+      VALUES (:name, :email, :password, :phone_number, :street_address, :postal_code, :city, :food_type_id)
+    """
+    with conn.cursor() as cursor:
+      emails = cursor.callfunc("email_present", int, [email])
+      if emails != 0:
+        print("Error: Register restaurant: Email is already in use")
+        return False
+      cursor.execute(SQL, [name, email, password, phone_number, street_address, postal_code, city, food_type_id])
+      conn.commit()
+    return True

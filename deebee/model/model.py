@@ -1,4 +1,4 @@
-# vim: ts=2 sts=0 sw=2 tw=100 et
+# vim: ts=2 sts=0 sw=2 tw=120 et
 
 __all__ = ["Model", "dataclass"]
 

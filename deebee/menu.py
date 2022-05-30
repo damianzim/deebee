@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# vim: ts=2 sts=0 sw=2 tw=100 et
+# vim: ts=2 sts=0 sw=2 tw=120 et
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict, namedtuple
@@ -9,7 +9,7 @@ from typing import Callable
 
 from tabulate import tabulate
 
-from deebee.model import ModelClient, ModelRestaurant
+from deebee.model import ModelClient, ModelFoodType, ModelRestaurant
 
 class Line:
   def __init__(self, line):
@@ -59,6 +59,8 @@ class CtxMain(Ctx):
   def __init__(self, mgr):
     Ctx.__init__(self, mgr)
     self.cmds["login"] = Cmd("<email>", self.login)
+    self.cmds["register"] = Cmd("{client <first_name> <last_name> | restaurant <name>} <email> "
+      "<street_address> <postal_code> <city> [<phone number>]", self.register)
 
   @property
   def name(self):
@@ -85,6 +87,56 @@ class CtxMain(Ctx):
     else:
       print(f"Error: Invalid account type: {account_type}")
       return
+
+  def register(self, line):
+    account_type = line.get_token("account type")
+    if account_type is None:
+      return
+    if account_type not in {"client", "restaurant"}:
+      print(f"Error: Invalid account type: {account_type}")
+      return
+    if account_type == "client":
+      first_name = line.get_token("first name")
+      if first_name is None:
+        return
+      last_name = line.get_token("last name")
+      if last_name is None:
+        return
+    else:
+      name = line.get_token("name")
+      if name is None:
+        return
+    email = line.get_token("email")
+    if email is None:
+      return
+    street_address = line.get_token("street address")
+    if street_address is None:
+      return
+    postal_code = line.get_token("postal code")
+    if postal_code is None:
+      return
+    city = line.get_token("city")
+    if city is None:
+      return
+    phone_number = line.get_token()
+    password = getpass.getpass(prompt="Password: ", stream=None)
+    if len(password) == 0:
+      print("Error: Password is empty")
+      return
+    password = hashlib.sha256(password.encode()).digest()
+    if account_type == "client":
+      result = ModelClient.register(self.mgr.conn, first_name, last_name, email, password, phone_number, street_address,
+        postal_code, city)
+    else:
+      food_types = ModelFoodType.list_food_types(self.mgr.conn)
+      print(tabulate(food_types, headers=("ID", "Name"), tablefmt="psql"))
+      food_type_id = int(input("Select food type ID: "))
+      if food_type_id not in dict(food_types):
+        print("Error: Invalid food type ID")
+        return
+      result = ModelRestaurant.register(self.mgr.conn, name, email, password, phone_number, street_address, postal_code,
+        city, food_type_id)
+    print("Info: Account has been created" if result else "Error: Could not create account")
 
 class Client(Ctx):
   def __init__(self, mgr, email):
