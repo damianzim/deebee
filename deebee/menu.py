@@ -55,6 +55,15 @@ class Ctx(ABC):
     for name, (args, _) in self.cmds.items():
       print(f"?{name} {args}" if len(args) > 0 else f"?{name}")
 
+class CtxInter(Ctx):
+  def __init__(self, mgr, ctx_parent):
+    Ctx.__init__(self, mgr)
+    self.ctx_parent = ctx_parent
+    self.cmds["end"] = Cmd("", self.end)
+
+  def end(self, _):
+    self.mgr.ctx = self.ctx_parent
+
 class CtxMain(Ctx):
   def __init__(self, mgr):
     Ctx.__init__(self, mgr)
@@ -138,13 +147,40 @@ class CtxMain(Ctx):
         city, food_type_id)
     print("Info: Account has been created" if result else "Error: Could not create account")
 
+class ClientFavorites(CtxInter):
+  def __init__(self, mgr, ctx_parent, client_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelFavorites(mgr.conn, client_id)
+    self.cmds["list"] = Cmd("", self.list_favorites)
+    self.cmds["add"] = Cmd("<restaurant id>", self.add_fav_entry)
+    self.cmds["delete"] = Cmd("<entry id>", self.delete_fav_entry)
+
+  @property
+  def name(self):
+    return "favorites (client)"
+
+  def list_favorites(self, _):
+    header, rows = self.model.list_favorites()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def add_fav_entry(self, line):
+    restaurant_id = line.get_token("restaurant id")
+    if restaurant_id is None:
+      return
+    self.model.add_fav_entry(restaurant_id)
+
+  def delete_fav_entry(self, line):
+    entry_id = line.get_token("entry id")
+    if entry_id is None:
+      return
+    self.model.delete_fav_entry(entry_id)
+
 class Client(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
     self.cmds["list"] = Cmd("{restaurants}", self.client_list)
-    self.cmds["favorites"] = Cmd("{list | add <restaurant id> | delete <entry id>}", self.favorites)
+    self.cmds["favorites"] = Cmd("", self.favorites)
     self.model = ModelClient.login(mgr.conn, email)
-    self.favorites = ModelFavorites(mgr.conn, self.model.client_id)
 
   @property
   def name(self):
@@ -162,24 +198,8 @@ class Client(Ctx):
       return
     print(tabulate(rows, header, tablefmt="psql"))
 
-  def favorites(self, line):
-    subcmd = line.get_token("sub-command")
-    if subcmd is None:
-      return
-    if subcmd == "list":
-      header, rows = self.favorites.list_favorites()
-      print(tabulate(rows, header, tablefmt="psql"))
-      return
-    if subcmd not in {"add", "delete"}:
-      print("Error: Invalid sub-command")
-      return
-    id = line.get_token("id")
-    if id is None:
-      return
-    if subcmd == "add":
-      self.favorites.add_fav_entry(id)
-    else:
-      self.favorites.delete_fav_entry(id)
+  def favorites(self, _):
+    self.mgr.ctx = ClientFavorites(self.mgr, self, self.model.client_id)
 
 class Restaurant(Ctx):
   def __init__(self, mgr, email):
