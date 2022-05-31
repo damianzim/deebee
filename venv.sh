@@ -5,6 +5,7 @@ if [[ $(uname -s) == MINGW* ]]; then
   source .venv/Scripts/activate
   pip install -r requirements.txt
   pip install -e .
+  alias python='winpty -Xallow-non-tty python.exe'
 else
   python3 -m venv .venv
   source .venv/bin/activate
