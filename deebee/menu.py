@@ -241,6 +241,7 @@ class ClientCart(CtxInter):
     CtxInter.__init__(self, mgr, ctx_parent)
     self.model = ModelCart(mgr.conn, client_id)
     self.cmds["show"] = Cmd("", self.show_cart)
+    self.cmds["order"] = Cmd("", self.order)
 
   @property
   def name(self):
@@ -249,6 +250,19 @@ class ClientCart(CtxInter):
   def show_cart(self, _):
     header, rows = self.model.show_cart()
     print(tabulate(rows, header, tablefmt="psql"))
+
+  def order(self, _):
+    header, rows = self.model.unique_restaurants()
+    if len(rows) == 0:
+      print("Error: No restaurant to place an order in")
+      return
+    elif len(rows) > 1:
+      print(tabulate(rows, header, tablefmt="psql"))
+      restaurant_id = int(input("Select restaurant to place an order in: "))
+    else:
+      restaurant_id = rows[0][0]
+    self.model.place_order(restaurant_id)
+    print("Order has been placed")
 
 class Client(Ctx):
   def __init__(self, mgr, email):

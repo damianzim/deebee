@@ -28,7 +28,8 @@ class ModelProducts(Model):
 
   def delete_product(self, product_id):
     SQL = """
-    DELETE FROM products
+    UPDATE products
+    SET restaurant_id = NULL
     WHERE restaurant_id = :restaurant_id AND product_id = :product_id
     """
     with self.conn.cursor() as cursor:
