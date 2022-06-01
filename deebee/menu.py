@@ -182,11 +182,40 @@ class ClientFavorites(CtxInter):
       return
     self.model.delete_fav_entry(int(entry_id))
 
+class ClientProducts(CtxInter):
+  def __init__(self, mgr, ctx_parent, client_id, restaurant_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.client_id = client_id
+    self.model = ModelProducts(mgr.conn, restaurant_id)
+    self.cmds["list"] = Cmd("", self.list_products)
+    self.cmds["addtocart"] = Cmd("<product id> <amount>", self.add_to_cart)
+
+  @property
+  def name(self):
+    return "products (client)"
+
+  def list_products(self, _):
+    header, rows = self.model.list_products()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def add_to_cart(self, line):
+    product_id = line.get_token("product id")
+    if product_id is None:
+      return
+    product_id = int(product_id)
+    amount = line.get_token("amount")
+    if amount is None:
+      return
+    amount = int(amount)
+    self.model.add_to_cart(self.client_id, product_id, amount)
+
 class ClientRestaurants(CtxInter):
   def __init__(self, mgr, ctx_parent, client_id):
     CtxInter.__init__(self, mgr, ctx_parent)
+    self.client_id = client_id
     self.model = ModelRestaurants(mgr.conn, client_id)
     self.cmds["list"] = Cmd("", self.list_restaurants)
+    self.cmds["select"] = Cmd("<restaurant id>", self.select_restaurant)
 
   @property
   def name(self):
@@ -195,6 +224,16 @@ class ClientRestaurants(CtxInter):
   def list_restaurants(self, _):
     header, rows = self.model.list_restaurants()
     print(tabulate(rows, header, tablefmt="psql"))
+
+  def select_restaurant(self, line):
+    restaurant_id = line.get_token("restaurant id")
+    if restaurant_id is None:
+      return
+    restaurant_id = int(restaurant_id)
+    if not self.model.exists(restaurant_id):
+      print("Error: The restaurant either does not exist or it is defunct")
+      return
+    self.mgr.ctx = ClientProducts(self.mgr, self, self.client_id, restaurant_id)
 
 class Client(Ctx):
   def __init__(self, mgr, email):

@@ -39,3 +39,24 @@ BEGIN
   RETURN l_emails;
 END email_present;
 /
+
+  CREATE OR REPLACE FUNCTION "CART_INSERT" (p_restaurant_id IN NUMBER, p_client_id IN NUMBER, p_product_id IN NUMBER, p_amount IN NUMBER)
+RETURN NUMBER
+AS
+  l_result NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO l_result
+    FROM products
+    WHERE product_id = p_product_id AND restaurant_id = p_restaurant_id;
+    IF l_result = 0 THEN
+      RETURN l_result;
+    END IF;
+
+    DELETE FROM cart
+    WHERE client_id = p_client_id AND product_id = p_product_id;
+
+    INSERT INTO cart (client_id, product_id, amount)
+    VALUES (p_client_id, p_product_id, p_amount);
+    RETURN 1;
+END cart_insert;
+/

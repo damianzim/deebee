@@ -34,3 +34,8 @@ class ModelProducts(Model):
     with self.conn.cursor() as cursor:
       cursor.execute(SQL, [self.restaurant_id, product_id])
       self.conn.commit()
+
+  def add_to_cart(self, client_id, product_id, amount):
+    with self.conn.cursor() as cursor:
+      result = cursor.callfunc("cart_insert", int, [self.restaurant_id, client_id, product_id, amount])
+      self.conn.commit()

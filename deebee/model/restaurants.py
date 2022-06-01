@@ -24,3 +24,14 @@ class ModelRestaurants(Model):
     return ("ID", "Name", "Food type", "Favorite"), [
       (*cols, "x" if favorite is not None else "")
       for *cols, favorite in rows]
+
+  def exists(self, restaurant_id):
+    SQL = """
+    SELECT COUNT(*)
+    FROM restaurants
+    WHERE restaurant_id = :restaurant_id AND defunct = 'n'
+    """
+    with self.conn.cursor() as cursor:
+      cursor.execute(SQL, [restaurant_id])
+      count, = cursor.fetchone()
+      return count > 0
