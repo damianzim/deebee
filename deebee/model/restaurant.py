@@ -4,7 +4,7 @@ from deebee.model.model import Model, dataclass
 
 @dataclass
 class ModelRestaurant(Model):
-  client_id: int
+  restaurant_id: int
   name: str
   email: str
   phone_number: str

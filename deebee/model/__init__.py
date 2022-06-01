@@ -3,4 +3,5 @@
 from deebee.model.client import ModelClient
 from deebee.model.favorites import ModelFavorites
 from deebee.model.food_type import ModelFoodType
+from deebee.model.products import ModelProducts
 from deebee.model.restaurant import ModelRestaurant

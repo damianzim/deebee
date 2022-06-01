@@ -9,7 +9,13 @@ from typing import Callable
 
 from tabulate import tabulate
 
-from deebee.model import ModelClient, ModelFavorites, ModelFoodType, ModelRestaurant
+from deebee.model import (
+  ModelClient,
+  ModelFavorites,
+  ModelFoodType,
+  ModelProducts,
+  ModelRestaurant,
+)
 
 class Line:
   def __init__(self, line):
@@ -201,14 +207,52 @@ class Client(Ctx):
   def favorites(self, _):
     self.mgr.ctx = ClientFavorites(self.mgr, self, self.model.client_id)
 
+class RestaurantProducts(CtxInter):
+  def __init__(self, mgr, ctx_parent, restaurant_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelProducts(mgr.conn, restaurant_id)
+    self.cmds["list"] = Cmd("", self.list_products)
+    self.cmds["add"] = Cmd("", self.add_product)
+    self.cmds["delete"] = Cmd("<product id>", self.delete_product)
+
+  @property
+  def name(self):
+    return "products (restaurant)"
+
+  def list_products(self, _):
+    header, rows = self.model.list_products()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def add_product(self, _):
+    name = input("Name: ").strip()
+    if len(name) == 0:
+      print("Error: Empty name")
+      return
+    description = input("Description: ").strip()
+    if len(description) == 0:
+      print("Error: Empty description")
+      return
+    price = float(input("Price: "))
+    self.model.add_product(name, description, price)
+
+  def delete_product(self, line):
+    product_id = line.get_token("product id")
+    if product_id is None:
+      return
+    self.model.delete_product(int(product_id))
+
 class Restaurant(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
+    self.cmds["products"] = Cmd("", self.products)
     self.model = ModelRestaurant.login(mgr.conn, email)
 
   @property
   def name(self):
     return "restaurant"
+
+  def products(self, _):
+    self.mgr.ctx = RestaurantProducts(self.mgr, self, self.model.restaurant_id)
 
 def menu(conn):
   mgr = Mgr(conn)
