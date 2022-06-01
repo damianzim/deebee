@@ -7,3 +7,4 @@ from deebee.model.food_type import ModelFoodType
 from deebee.model.products import ModelProducts
 from deebee.model.restaurant import ModelRestaurant
 from deebee.model.restaurants import ModelRestaurants
+from deebee.model.reviews import ModelReviews

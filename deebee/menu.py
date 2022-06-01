@@ -17,6 +17,7 @@ from deebee.model import (
   ModelProducts,
   ModelRestaurant,
   ModelRestaurants,
+  ModelReviews,
 )
 
 class Line:
@@ -210,13 +211,41 @@ class ClientProducts(CtxInter):
     amount = int(amount)
     self.model.add_to_cart(self.client_id, product_id, amount)
 
+class ClientReviews(CtxInter):
+  def __init__(self, mgr, ctx_parent, client_id, restaurant_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.client_id = client_id
+    self.model = ModelReviews(mgr.conn, restaurant_id)
+    self.cmds["list"] = Cmd("", self.list_reviews)
+    self.cmds["add"] = Cmd("<rating>", self.add_review)
+
+  @property
+  def name(self):
+    return "reviews (client)"
+
+  def list_reviews(self, _):
+    header, rows = self.model.list_reviews()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def add_review(self, line):
+    rating = line.get_token("rating")
+    if rating is None:
+      return
+    rating = float(rating)
+    content = input("Review content: ").strip()
+    if len(content) == 0:
+      print("Error: Empty review content")
+      return
+    self.model.add_review(self.client_id, rating, content)
+
 class ClientRestaurants(CtxInter):
   def __init__(self, mgr, ctx_parent, client_id):
     CtxInter.__init__(self, mgr, ctx_parent)
     self.client_id = client_id
     self.model = ModelRestaurants(mgr.conn, client_id)
     self.cmds["list"] = Cmd("", self.list_restaurants)
-    self.cmds["select"] = Cmd("<restaurant id>", self.select_restaurant)
+    self.cmds["products"] = Cmd("<restaurant id>", self.restaurant_products)
+    self.cmds["reviews"] = Cmd("<restaurant id>", self.restaurant_reviews)
 
   @property
   def name(self):
@@ -226,7 +255,7 @@ class ClientRestaurants(CtxInter):
     header, rows = self.model.list_restaurants()
     print(tabulate(rows, header, tablefmt="psql"))
 
-  def select_restaurant(self, line):
+  def restaurant_products(self, line):
     restaurant_id = line.get_token("restaurant id")
     if restaurant_id is None:
       return
@@ -235,6 +264,16 @@ class ClientRestaurants(CtxInter):
       print("Error: The restaurant either does not exist or it is defunct")
       return
     self.mgr.ctx = ClientProducts(self.mgr, self, self.client_id, restaurant_id)
+
+  def restaurant_reviews(self, line):
+    restaurant_id = line.get_token("restaurant id")
+    if restaurant_id is None:
+      return
+    restaurant_id = int(restaurant_id)
+    if not self.model.exists(restaurant_id):
+      print("Error: The restaurant either does not exist or it is defunct")
+      return
+    self.mgr.ctx = ClientReviews(self.mgr, self, self.client_id, restaurant_id)
 
 class ClientCart(CtxInter):
   def __init__(self, mgr, ctx_parent, client_id):
