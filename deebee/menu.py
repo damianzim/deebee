@@ -10,6 +10,7 @@ from typing import Callable
 from tabulate import tabulate
 
 from deebee.model import (
+  ModelCart,
   ModelClient,
   ModelFavorites,
   ModelFoodType,
@@ -235,9 +236,24 @@ class ClientRestaurants(CtxInter):
       return
     self.mgr.ctx = ClientProducts(self.mgr, self, self.client_id, restaurant_id)
 
+class ClientCart(CtxInter):
+  def __init__(self, mgr, ctx_parent, client_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelCart(mgr.conn, client_id)
+    self.cmds["show"] = Cmd("", self.show_cart)
+
+  @property
+  def name(self):
+    return "cart (client)"
+
+  def show_cart(self, _):
+    header, rows = self.model.show_cart()
+    print(tabulate(rows, header, tablefmt="psql"))
+
 class Client(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
+    self.cmds["cart"] = Cmd("", self.cart)
     self.cmds["favorites"] = Cmd("", self.favorites)
     self.cmds["restaurants"] = Cmd("", self.restaurants)
     self.model = ModelClient.login(mgr.conn, email)
@@ -245,6 +261,9 @@ class Client(Ctx):
   @property
   def name(self):
     return "client"
+
+  def cart(self, _):
+    self.mgr.ctx = ClientCart(self.mgr, self, self.model.client_id)
 
   def favorites(self, _):
     self.mgr.ctx = ClientFavorites(self.mgr, self, self.model.client_id)

@@ -214,6 +214,19 @@
 
 
 --------------------------------------------------------
+--  DDL for View PRODUCT_DETAILS_VIEW
+--------------------------------------------------------
+  CREATE OR REPLACE FORCE VIEW "CART_VIEW" ("CART_ENTRY_ID", "CLIENT_ID", "RESTAURANT_NAME", "NAME", "PRICE", "AMOUNT", "TOTAL_PRICE") AS
+    SELECT c.cart_entry_id, c.client_id, r.name, p.name, p.price, c.amount, (p.price * c.amount) AS total_price
+    FROM cart c
+    INNER JOIN products p
+      ON c.product_id = p.product_id
+      INNER JOIN restaurants r
+        ON p.restaurant_id = r.restaurant_id
+    WITH READ ONLY;
+
+
+--------------------------------------------------------
 -- Trigger for sequence: PRODUCT_SEQ
 --------------------------------------------------------
   CREATE OR REPLACE TRIGGER "PRODUCT_ON_INSERT"
@@ -416,6 +429,7 @@ END review_reply_on_insert;
 --------------------------------------------------------
   ALTER TABLE "RESTAURANTS" ADD CONSTRAINT "FOOD_TYPE_ID_FK" FOREIGN KEY ("FOOD_TYPE_ID")
     REFERENCES "FOOD_TYPES" ("FOOD_TYPE_ID") ENABLE;
+
 
 --------------------------------------------------------
 --  Ref Constraints for Table FAVORITES
