@@ -15,6 +15,7 @@ from deebee.model import (
   ModelFoodType,
   ModelProducts,
   ModelRestaurant,
+  ModelRestaurants,
 )
 
 class Line:
@@ -173,39 +174,44 @@ class ClientFavorites(CtxInter):
     restaurant_id = line.get_token("restaurant id")
     if restaurant_id is None:
       return
-    self.model.add_fav_entry(restaurant_id)
+    self.model.add_fav_entry(int(restaurant_id))
 
   def delete_fav_entry(self, line):
     entry_id = line.get_token("entry id")
     if entry_id is None:
       return
-    self.model.delete_fav_entry(entry_id)
+    self.model.delete_fav_entry(int(entry_id))
+
+class ClientRestaurants(CtxInter):
+  def __init__(self, mgr, ctx_parent, client_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelRestaurants(mgr.conn, client_id)
+    self.cmds["list"] = Cmd("", self.list_restaurants)
+
+  @property
+  def name(self):
+    return "restaurants (client)"
+
+  def list_restaurants(self, _):
+    header, rows = self.model.list_restaurants()
+    print(tabulate(rows, header, tablefmt="psql"))
 
 class Client(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
-    self.cmds["list"] = Cmd("{restaurants}", self.client_list)
     self.cmds["favorites"] = Cmd("", self.favorites)
+    self.cmds["restaurants"] = Cmd("", self.restaurants)
     self.model = ModelClient.login(mgr.conn, email)
 
   @property
   def name(self):
     return "client"
 
-  def client_list(self, line):
-    resource = line.get_token("resource")
-    if resource is None:
-      return
-    conn = self.mgr.conn
-    if resource == "restaurants":
-      header, rows = self.model.list_restaurants()
-    else:
-      print(f"Error: Unknown resource: {resource}")
-      return
-    print(tabulate(rows, header, tablefmt="psql"))
-
   def favorites(self, _):
     self.mgr.ctx = ClientFavorites(self.mgr, self, self.model.client_id)
+
+  def restaurants(self, _):
+    self.mgr.ctx = ClientRestaurants(self.mgr, self, self.model.client_id)
 
 class RestaurantProducts(CtxInter):
   def __init__(self, mgr, ctx_parent, restaurant_id):

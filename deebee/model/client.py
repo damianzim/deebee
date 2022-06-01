@@ -42,21 +42,3 @@ class ModelClient(Model):
       cursor.execute(SQL, [first_name, last_name, email, password, phone_number, street_address, postal_code, city])
       conn.commit()
     return True
-
-  def list_restaurants(self):
-    SQL = """
-    SELECT r.restaurant_id, r.name, ft.name, f.client_id
-    FROM restaurants r
-    LEFT JOIN (SELECT client_id, restaurant_id
-               FROM favorites
-               WHERE client_id = :client_id) f
-      ON r.restaurant_id = f.restaurant_id
-      INNER JOIN food_types ft
-        ON r.food_type_id = ft.food_type_id
-    """
-    with self.conn.cursor() as cursor:
-      cursor.execute(SQL, client_id=self.client_id)
-      rows = cursor.fetchall()
-    return ("ID", "Name", "Food type", "Favorite"), [
-      (*cols, "x" if favorite is not None else "")
-      for *cols, favorite in rows]
