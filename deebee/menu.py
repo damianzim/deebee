@@ -358,10 +358,37 @@ class RestaurantProducts(CtxInter):
       return
     self.model.delete_product(int(product_id))
 
+class RestaurantReviews(CtxInter):
+  def __init__(self, mgr, ctx_parent, restaurant_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelReviews(mgr.conn, restaurant_id)
+    self.cmds["list"] = Cmd("", self.list_reviews)
+    self.cmds["reply"] = Cmd("<review id>", self.reply_review)
+
+  @property
+  def name(self):
+    return "reviews (restaurant)"
+
+  def list_reviews(self, _):
+    header, rows = self.model.list_reviews()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def reply_review(self, line):
+    review_id = line.get_token("review id")
+    if review_id is None:
+      return
+    review_id = int(review_id)
+    content = input("Review reply content: ").strip()
+    if len(content) == 0:
+      print("Error: Empty review reply content")
+      return
+    self.model.review_reply(review_id, content)
+
 class Restaurant(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
     self.cmds["products"] = Cmd("", self.products)
+    self.cmds["reviews"] = Cmd("", self.reviews)
     self.model = ModelRestaurant.login(mgr.conn, email)
 
   @property
@@ -370,6 +397,9 @@ class Restaurant(Ctx):
 
   def products(self, _):
     self.mgr.ctx = RestaurantProducts(self.mgr, self, self.model.restaurant_id)
+
+  def reviews(self, _):
+    self.mgr.ctx = RestaurantReviews(self.mgr, self, self.model.restaurant_id)
 
 def menu(conn):
   mgr = Mgr(conn)

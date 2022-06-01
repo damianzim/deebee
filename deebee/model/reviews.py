@@ -7,15 +7,17 @@ class ModelReviews(Model):
     Model.__init__(self, conn)
     self.restaurant_id = restaurant_id
 
-  def list_reviews(self): # TODO: ADD REVIEW REPLY COLUMN
+  def list_reviews(self):
     SQL = """
-    SELECT review_id, rating, content
-    FROM reviews
-    WHERE restaurant_id = :restaurant_id
+    SELECT r.review_id, r.rating, r.content AS review_content, rr.content AS reply_content
+    FROM reviews r
+    LEFT JOIN review_replies rr
+      ON r.review_id = rr.review_id
+    WHERE r.restaurant_id = :restaurant_id
     """
     with self.conn.cursor() as cursor:
       cursor.execute(SQL, [self.restaurant_id])
-      return ("Rewview ID", "Rating", "Content"), cursor.fetchall()
+      return ("Rewview ID", "Rating", "Review content", "Reply content"), cursor.fetchall()
 
   def add_review(self, client_id, rating, content):
     with self.conn.cursor() as cursor:
@@ -26,3 +28,18 @@ class ModelReviews(Model):
           "placed reviews")
       else:
         print("Info: Review has been placed")
+
+  def review_reply(self, review_id, content):
+    SQL = """
+    INSERT INTO review_replies (review_id, content)
+    SELECT :review_id, :content
+    FROM dual
+    WHERE (SELECT restaurant_id
+           FROM reviews
+           WHERE review_id = :review_id) = :restaurant_id AND NOT EXISTS (SELECT review_reply_id
+                                                                          FROM review_replies
+                                                                          WHERE review_id = :review_id)
+    """
+    with self.conn.cursor() as cursor:
+      cursor.execute(SQL, review_id=review_id, content=content, restaurant_id=self.restaurant_id)
+      self.conn.commit()
