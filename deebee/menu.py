@@ -14,6 +14,8 @@ from deebee.model import (
   ModelClient,
   ModelFavorites,
   ModelFoodType,
+  ModelOrderDetails,
+  ModelOrders,
   ModelProducts,
   ModelRestaurant,
   ModelRestaurants,
@@ -303,11 +305,53 @@ class ClientCart(CtxInter):
     self.model.place_order(restaurant_id)
     print("Order has been placed")
 
+class ClientOrderDetails(CtxInter):
+  def __init__(self, mgr, ctx_parent, order_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelOrderDetails(mgr.conn, order_id)
+    self.cmds["show"] = Cmd("", self.show_details)
+
+  @property
+  def name(self):
+    return "details (client)"
+
+  def show_details(self, _):
+    header, rows = self.model.show_details()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+
+class ClientOrders(CtxInter):
+  def __init__(self, mgr, ctx_parent, client_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.client_id = client_id
+    self.model = ModelOrders(mgr.conn)
+    self.cmds["show"] = Cmd("", self.show_orders)
+    self.cmds["details"] = Cmd("<order id>", self.details)
+
+  @property
+  def name(self):
+    return "orders (client)"
+
+  def show_orders(self, _):
+    header, rows = self.model.show_for_client(self.client_id)
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def details(self, line):
+    order_id = line.get_token("order id")
+    if order_id is None:
+      return
+    order_id = int(order_id)
+    if not self.model.check_owner(order_id, self.client_id):
+      print("Error: Cannot access order")
+      return
+    self.mgr.ctx = ClientOrderDetails(self.mgr, self, order_id)
+
 class Client(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
     self.cmds["cart"] = Cmd("", self.cart)
     self.cmds["favorites"] = Cmd("", self.favorites)
+    self.cmds["orders"] = Cmd("", self.orders)
     self.cmds["restaurants"] = Cmd("", self.restaurants)
     self.model = ModelClient.login(mgr.conn, email)
 
@@ -320,6 +364,9 @@ class Client(Ctx):
 
   def favorites(self, _):
     self.mgr.ctx = ClientFavorites(self.mgr, self, self.model.client_id)
+
+  def orders(self, _):
+    self.mgr.ctx = ClientOrders(self.mgr, self, self.model.client_id)
 
   def restaurants(self, _):
     self.mgr.ctx = ClientRestaurants(self.mgr, self, self.model.client_id)
