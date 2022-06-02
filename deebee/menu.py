@@ -319,7 +319,6 @@ class ClientOrderDetails(CtxInter):
     header, rows = self.model.show_details()
     print(tabulate(rows, header, tablefmt="psql"))
 
-
 class ClientOrders(CtxInter):
   def __init__(self, mgr, ctx_parent, client_id):
     CtxInter.__init__(self, mgr, ctx_parent)
@@ -341,7 +340,7 @@ class ClientOrders(CtxInter):
     if order_id is None:
       return
     order_id = int(order_id)
-    if not self.model.check_owner(order_id, self.client_id):
+    if not self.model.check_owner_client(order_id, self.client_id):
       print("Error: Cannot access order")
       return
     self.mgr.ctx = ClientOrderDetails(self.mgr, self, order_id)
@@ -405,6 +404,43 @@ class RestaurantProducts(CtxInter):
       return
     self.model.delete_product(int(product_id))
 
+class RestaurantOrderDetails(CtxInter):
+  def __init__(self, mgr, ctx_parent, order_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.model = ModelOrderDetails(mgr.conn, order_id)
+    self.cmds["show"] = Cmd("", self.show_details)
+    self.cmds["client"] = Cmd("", self.client_info)
+    self.cmds["mark"] = Cmd("{pending | completed}", self.mark_order)
+
+  @property
+  def name(self):
+    return "details (restaurant)"
+
+  def show_details(self, _):
+    header, rows = self.model.show_details()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def client_info(self, _):
+    header, rows = self.model.client_info()
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def mark_order(self, line):
+    new_state = line.get_token("state")
+    if new_state not in {"pending", "completed"}:
+      print("Error: Invalid new order state")
+      return
+    state = self.model.get_state().lower()
+    if state == "completed":
+      print("Info: Order already completed")
+      return
+    elif new_state == "pending" and state == "pending":
+      print("Info: Order already in progress")
+      return
+    elif new_state == "completed" and state == "checkout":
+      print("Error: Cannot mark an order as completed if it is not in progress")
+      return
+    self.model.set_state(new_state.capitalize())
+
 class RestaurantReviews(CtxInter):
   def __init__(self, mgr, ctx_parent, restaurant_id):
     CtxInter.__init__(self, mgr, ctx_parent)
@@ -431,9 +467,36 @@ class RestaurantReviews(CtxInter):
       return
     self.model.review_reply(review_id, content)
 
+class RestaurantOrders(CtxInter):
+  def __init__(self, mgr, ctx_parent, restaurant_id):
+    CtxInter.__init__(self, mgr, ctx_parent)
+    self.restaurant_id = restaurant_id
+    self.model = ModelOrders(mgr.conn)
+    self.cmds["show"] = Cmd("", self.show_orders)
+    self.cmds["details"] = Cmd("<order id>", self.details)
+
+  @property
+  def name(self):
+    return "orders (restaurant)"
+
+  def show_orders(self, _):
+    header, rows = self.model.show_for_restaurant(self.restaurant_id)
+    print(tabulate(rows, header, tablefmt="psql"))
+
+  def details(self, line):
+    order_id = line.get_token("order id")
+    if order_id is None:
+      return
+    order_id = int(order_id)
+    if not self.model.check_owner_restaurant(order_id, self.restaurant_id):
+      print("Error: Cannot access order")
+      return
+    self.mgr.ctx = RestaurantOrderDetails(self.mgr, self, order_id)
+
 class Restaurant(Ctx):
   def __init__(self, mgr, email):
     Ctx.__init__(self, mgr)
+    self.cmds["orders"] = Cmd("", self.orders)
     self.cmds["products"] = Cmd("", self.products)
     self.cmds["reviews"] = Cmd("", self.reviews)
     self.model = ModelRestaurant.login(mgr.conn, email)
@@ -441,6 +504,9 @@ class Restaurant(Ctx):
   @property
   def name(self):
     return "restaurant"
+
+  def orders(self, _):
+    self.mgr.ctx = RestaurantOrders(self.mgr, self, self.model.restaurant_id)
 
   def products(self, _):
     self.mgr.ctx = RestaurantProducts(self.mgr, self, self.model.restaurant_id)

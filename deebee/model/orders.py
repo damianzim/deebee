@@ -25,7 +25,24 @@ class ModelOrders(Model):
       cursor.execute(SQL, [client_id])
       return HEADER, cursor.fetchall()
 
-  def check_owner(self, order_id, client_id):
+  def show_for_restaurant(self, restaurant_id):
+    SQL = """
+    SELECT o.order_id, o.order_date, COUNT(*) AS products_no, SUM(od.amount) AS items_no, SUM((p.price * od.amount)) AS total_price, o.state
+    FROM orders o
+    INNER JOIN order_details od
+      ON o.order_id = od.order_id
+      INNER JOIN products p
+        ON od.product_id = p.product_id
+    WHERE o.restaurant_id = :restaurant_id
+    GROUP BY o.order_id, o.order_date, o.state
+    ORDER BY o.order_id ASC
+    """
+    HEADER = ("Order ID", "Order date", "Products no.", "Items no.", "Total price", "Order state")
+    with self.conn.cursor() as cursor:
+      cursor.execute(SQL, [restaurant_id])
+      return HEADER, cursor.fetchall()
+
+  def check_owner_client(self, order_id, client_id):
     SQL = """
     SELECT COUNT(*)
     FROM orders
@@ -33,4 +50,14 @@ class ModelOrders(Model):
     """
     with self.conn.cursor() as cursor:
       cursor.execute(SQL, [order_id, client_id])
+      return cursor.fetchone()[0] > 0
+
+  def check_owner_restaurant(self, order_id, restaurant_id):
+    SQL = """
+    SELECT COUNT(*)
+    FROM orders
+    WHERE order_id = :order_id AND restaurant_id = :restaurant_id
+    """
+    with self.conn.cursor() as cursor:
+      cursor.execute(SQL, [order_id, restaurant_id])
       return cursor.fetchone()[0] > 0
